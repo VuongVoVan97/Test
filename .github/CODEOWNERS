@@ -1,0 +1,3 @@
+# Owner duyệt mọi thay đổi. Kết hợp với branch protection "Require review from Code Owners"
+# thì PR của member khác chỉ merge được sau khi owner approve.
+* @VuongVoVan97
