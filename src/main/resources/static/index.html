@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voucher Demo</title>
+    <style>
+        :root {
+            --bg: #f4f6fb;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --success: #15803d;
+            --error: #b91c1c;
+            --border: #d1d5db;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #0f172a;
+                --card: #1e293b;
+                --text: #e5e7eb;
+                --muted: #9ca3af;
+                --border: #374151;
+            }
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 16px;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            text-align: center;
+            margin: 16px 0 24px;
+        }
+
+        .grid {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .card h2 {
+            font-size: 1.15rem;
+            margin: 0 0 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            margin-top: 4px;
+            padding: 8px 10px;
+            font: inherit;
+            color: var(--text);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        textarea { resize: vertical; min-height: 60px; }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            font: inherit;
+            font-weight: 600;
+            color: #fff;
+            background: var(--primary);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button:hover { background: var(--primary-hover); }
+        button:disabled { opacity: 0.6; cursor: wait; }
+
+        .result {
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            min-height: 1em;
+        }
+
+        .result.ok { color: var(--success); border-color: var(--success); }
+        .result.err { color: var(--error); border-color: var(--error); }
+
+        .hint {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-top: -6px;
+            margin-bottom: 12px;
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 12px; }
+            .card { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Voucher Demo</h1>
+
+    <div class="grid">
+        <!-- Customer -->
+        <section class="card">
+            <h2>1. Tạo khách hàng</h2>
+            <form id="customerForm">
+                <label>Họ tên *
+                    <input name="name" required>
+                </label>
+                <label>Số điện thoại *
+                    <input name="phone" required>
+                </label>
+                <label>Tuổi
+                    <input name="age" type="number" min="0">
+                </label>
+                <label>Level
+                    <select name="level">
+                        <option value="">(mặc định NORMAL)</option>
+                        <option value="NORMAL">NORMAL</option>
+                        <option value="VIP">VIP</option>
+                    </select>
+                </label>
+                <label>Trạng thái
+                    <select name="status">
+                        <option value="">(mặc định ACTIVE)</option>
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="BANNED">BANNED</option>
+                    </select>
+                </label>
+                <label>Số đơn đã đặt
+                    <input name="orderCount" type="number" min="0">
+                </label>
+                <button type="submit">Tạo khách hàng</button>
+            </form>
+            <div id="customerResult" class="result"></div>
+        </section>
+
+        <!-- Order -->
+        <section class="card">
+            <h2>2. Tạo đơn hàng</h2>
+            <form id="orderForm">
+                <label>Customer ID *
+                    <input name="customerId" type="number" min="1" required>
+                </label>
+                <label>Tổng tiền *
+                    <input name="totalAmount" type="number" min="0" step="1" required>
+                </label>
+                <label>Phương thức thanh toán
+                    <input name="paymentMethod" placeholder="COD, BANK...">
+                </label>
+                <label>Địa chỉ giao hàng
+                    <input name="shippingAddress">
+                </label>
+                <label>Ghi chú
+                    <textarea name="note"></textarea>
+                </label>
+                <button type="submit">Tạo đơn hàng</button>
+            </form>
+            <div id="orderResult" class="result"></div>
+        </section>
+
+        <!-- Voucher -->
+        <section class="card">
+            <h2>3. Kiểm tra voucher</h2>
+            <form id="voucherForm">
+                <label>Customer ID *
+                    <input name="customerId" type="number" min="1" required>
+                </label>
+                <label>Order ID *
+                    <input name="orderId" type="number" min="1" required>
+                </label>
+                <label>Mã voucher *
+                    <input name="code" required placeholder="SALE50, SALE10...">
+                </label>
+                <button type="submit">Kiểm tra</button>
+            </form>
+            <div id="voucherResult" class="result"></div>
+        </section>
+    </div>
+
+    <script>
+        // Gọi API và trả về { ok, status, data }. Lỗi từ server có dạng {"message": "..."}.
+        async function callApi(method, url, body) {
+            const options = { method, headers: {} };
+            if (body !== undefined) {
+                options.headers['Content-Type'] = 'application/json';
+                options.body = JSON.stringify(body);
+            }
+            const response = await fetch(url, options);
+            const text = await response.text();
+            let data = null;
+            try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+            return { ok: response.ok, status: response.status, data };
+        }
+
+        function show(el, ok, text) {
+            el.className = 'result ' + (ok ? 'ok' : 'err');
+            el.textContent = text;
+        }
+
+        function errorText(res) {
+            const msg = res.data && res.data.message ? res.data.message : JSON.stringify(res.data);
+            return `Lỗi ${res.status}: ${msg}`;
+        }
+
+        // Chuyển giá trị ô input thành số hoặc undefined nếu để trống
+        function toNumber(value) {
+            return value === '' || value === null ? undefined : Number(value);
+        }
+
+        function toText(value) {
+            const trimmed = (value || '').trim();
+            return trimmed === '' ? undefined : trimmed;
+        }
+
+        // 1. Customer
+        document.getElementById('customerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const result = document.getElementById('customerResult');
+            const f = new FormData(form);
+            const body = {
+                name: toText(f.get('name')),
+                phone: toText(f.get('phone')),
+                age: toNumber(f.get('age')),
+                level: toText(f.get('level')),
+                status: toText(f.get('status')),
+                orderCount: toNumber(f.get('orderCount'))
+            };
+
+            const button = form.querySelector('button');
+            button.disabled = true;
+            try {
+                const res = await callApi('POST', '/customer', body);
+                if (res.ok) {
+                    show(result, true, `Đã tạo khách hàng ID = ${res.data.id}\n` + JSON.stringify(res.data, null, 2));
+                    // Điền sẵn customerId vào hai form còn lại
+                    document.querySelector('#orderForm [name="customerId"]').value = res.data.id;
+                    document.querySelector('#voucherForm [name="customerId"]').value = res.data.id;
+                } else {
+                    show(result, false, errorText(res));
+                }
+            } catch (err) {
+                show(result, false, 'Không kết nối được tới server: ' + err.message);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        // 2. Order
+        document.getElementById('orderForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const result = document.getElementById('orderResult');
+            const f = new FormData(form);
+            const body = {
+                customerId: toNumber(f.get('customerId')),
+                totalAmount: toNumber(f.get('totalAmount')),
+                paymentMethod: toText(f.get('paymentMethod')),
+                shippingAddress: toText(f.get('shippingAddress')),
+                note: toText(f.get('note'))
+            };
+
+            const button = form.querySelector('button');
+            button.disabled = true;
+            try {
+                const res = await callApi('POST', '/order', body);
+                if (res.ok) {
+                    show(result, true, `Đã tạo đơn hàng ID = ${res.data.id}, mã ${res.data.orderCode}\n` + JSON.stringify(res.data, null, 2));
+                    // Điền sẵn orderId vào form voucher
+                    document.querySelector('#voucherForm [name="orderId"]').value = res.data.id;
+                } else {
+                    show(result, false, errorText(res));
+                }
+            } catch (err) {
+                show(result, false, 'Không kết nối được tới server: ' + err.message);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        // 3. Voucher check
+        document.getElementById('voucherForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const result = document.getElementById('voucherResult');
+            const f = new FormData(form);
+            const params = new URLSearchParams({
+                customerId: f.get('customerId'),
+                orderId: f.get('orderId'),
+                code: (f.get('code') || '').trim()
+            });
+
+            const button = form.querySelector('button');
+            button.disabled = true;
+            try {
+                const res = await callApi('GET', '/voucher/check?' + params.toString());
+                if (res.ok) {
+                    const icon = res.data.valid ? '✅ ' : '❌ ';
+                    show(result, res.data.valid, icon + res.data.message);
+                } else {
+                    show(result, false, errorText(res));
+                }
+            } catch (err) {
+                show(result, false, 'Không kết nối được tới server: ' + err.message);
+            } finally {
+                button.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
