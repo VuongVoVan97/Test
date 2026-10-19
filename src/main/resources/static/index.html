@@ -205,6 +205,14 @@
             </form>
             <div id="voucherResult" class="result"></div>
         </section>
+
+        <!-- Knowledge -->
+        <section class="card">
+            <h2>4. Tổng hợp kiến thức đã học</h2>
+            <p class="hint">Tạo file .md (theo ngày giờ) trong thư mục <code>knowledge/</code> để ôn phỏng vấn.</p>
+            <button type="button" id="knowledgeBtn">Tổng hợp kiến thức</button>
+            <div id="knowledgeResult" class="result"></div>
+        </section>
     </div>
 
     <script>
@@ -327,6 +335,25 @@
                 if (res.ok) {
                     const icon = res.data.valid ? '✅ ' : '❌ ';
                     show(result, res.data.valid, icon + res.data.message);
+                } else {
+                    show(result, false, errorText(res));
+                }
+            } catch (err) {
+                show(result, false, 'Không kết nối được tới server: ' + err.message);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        // 4. Knowledge summary
+        document.getElementById('knowledgeBtn').addEventListener('click', async (e) => {
+            const button = e.target;
+            const result = document.getElementById('knowledgeResult');
+            button.disabled = true;
+            try {
+                const res = await callApi('POST', '/knowledge/summary');
+                if (res.ok) {
+                    show(result, true, `Đã tạo file: ${res.data.fileName}\n${res.data.path}`);
                 } else {
                     show(result, false, errorText(res));
                 }
