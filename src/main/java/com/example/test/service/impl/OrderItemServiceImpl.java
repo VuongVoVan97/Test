@@ -2,6 +2,7 @@ package com.example.test.service.impl;
 
 import com.example.test.entity.OrderItem;
 import com.example.test.entity.Product;
+import com.example.test.exception.NotFoundException;
 import com.example.test.repository.OrderItemRepository;
 import com.example.test.repository.ProductRepository;
 import com.example.test.request.OrderItemRequest;
@@ -37,12 +38,28 @@ public class OrderItemServiceImpl implements OrderItemService {
         return orderItemRepository.findByOrderId(orderId);
     }
 
+    // [REVIEW FIX] rollbackFor = Exception.class: NotFoundException là checked exception nên
+    // @Transactional mặc định KHÔNG rollback. Trước đây nếu sản phẩm thứ 3 lỗi thì kho của
+    // sản phẩm 1, 2 vẫn bị trừ dù không có OrderItem nào được lưu.
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public List<OrderItem> createItems(Long orderId, List<OrderItemRequest> requests) throws Exception {
+        // [REVIEW FIX] Validate đầu vào: trước đây orderId/requests null hoặc rỗng gây NPE hoặc tạo đơn rỗng
+        if (orderId == null) {
+            throw new IllegalArgumentException("Order ID must not be null");
+        }
+        if (requests == null || requests.isEmpty()) {
+            throw new IllegalArgumentException("Order must have at least one item");
+        }
+
         List<OrderItem> items = new ArrayList<>();
 
         for (OrderItemRequest request : requests) {
+
+            // [REVIEW FIX] productId null làm findById(null) ném lỗi của Spring Data (trả 500)
+            if (request.getProductId() == null) {
+                throw new IllegalArgumentException("Product ID must not be null");
+            }
 
             // 1. Validate quantity > 0
             if (request.getQuantity() == null || request.getQuantity() <= 0) {
@@ -52,14 +69,17 @@ public class OrderItemServiceImpl implements OrderItemService {
             }
 
             // 2. Lấy Product và kiểm tra tồn tại
+            // [REVIEW FIX] Đổi new Exception(...) sang NotFoundException để client nhận 404 thay vì 500
             Product product = productRepository.findById(request.getProductId())
                     .orElseThrow(() ->
-                            new Exception("Product not found: " + request.getProductId())
+                            new NotFoundException("Product not found: " + request.getProductId())
                     );
 
             // 3. Tạo OrderItem và copy snapshot từ Product
             OrderItem item = new OrderItem();
 
+            // [REVIEW FIX] Thiếu setOrderId: cột order_id là nullable = false nên saveAll sẽ lỗi
+            item.setOrderId(orderId);
             item.setProductId(product.getId());
             item.setProductName(product.getName());
             item.setUnitPrice(product.getPrice());
@@ -85,17 +105,15 @@ public class OrderItemServiceImpl implements OrderItemService {
         return orderItemRepository.saveAll(items);
     }
 
+    // [REVIEW FIX] Trước đây hàm này tính lại và ghi đè subtotal của từng item (side effect).
+    // Giờ chỉ cộng subtotal đã có, đồng thời xử lý items null/rỗng.
     @Override
     public BigDecimal calculateTotal(List<OrderItem> items) {
+        if (items == null || items.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
         return items.stream()
-                .map(item -> {
-                    BigDecimal subtotal = item.getUnitPrice()
-                            .multiply(BigDecimal.valueOf(item.getQuantity()));
-
-                    item.setSubtotal(subtotal);
-
-                    return subtotal;
-                })
+                .map(OrderItem::getSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

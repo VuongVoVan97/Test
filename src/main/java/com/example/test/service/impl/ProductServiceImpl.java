@@ -10,6 +10,7 @@ import com.example.test.service.ProductService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -55,8 +56,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
 
+    // [REVIEW FIX] rollbackFor = Exception.class: NotFoundException là checked exception nên
+    // @Transactional mặc định không rollback.
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void decreaseStock(Long productId, int quantity) throws Exception {
         // 1. Quantity phải lớn hơn 0
         if (quantity <= 0) {
@@ -69,6 +72,10 @@ public class ProductServiceImpl implements ProductService {
                         new NotFoundException("Product not found: " + productId));
 
         // 3. Product phải ACTIVE
+        // [REVIEW FIX] Tách riêng OUT_OF_STOCK để thông báo đúng, trước đây báo "not active" gây hiểu nhầm
+        if (ProductStatus.OUT_OF_STOCK.equals(product.getStatus())) {
+            throw new IllegalStateException("Insufficient stock");
+        }
         if (!ProductStatus.ACTIVE.equals(product.getStatus())) {
             throw new IllegalStateException("Product is not active");
         }
@@ -87,38 +94,38 @@ public class ProductServiceImpl implements ProductService {
             product.setStatus(ProductStatus.OUT_OF_STOCK);
         }
 
+        // [REVIEW FIX] Cập nhật updatedAt khi đổi tồn kho
+        product.setUpdatedAt(LocalDateTime.now());
+
         // Không cần gọi save() nếu product là entity đang được
         // JPA quản lý trong transaction hiện tại.
     }
 
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void increaseStock(Long productId, int quantity) throws Exception {
         if (quantity <= 0) {
             throw new IllegalArgumentException(
                     "Quantity must be greater than 0"
             );
         }
-        // TODO: cộng lại stock, nếu đang OUT_OF_STOCK thì chuyển về ACTIVE
+        // Cộng lại stock, nếu đang OUT_OF_STOCK thì chuyển về ACTIVE
         Product product = productRepository.findById(productId)
                 .orElseThrow(() ->
                         new NotFoundException("Product not found: " + productId));
 
-        if (!ProductStatus.ACTIVE.equals(product.getStatus())
-                && !ProductStatus.OUT_OF_STOCK.equals(product.getStatus())) {
-            throw new IllegalStateException(
-                    "Cannot increase stock for this product status"
-            );
-        }
-
-
+        // [REVIEW FIX] Bỏ kiểm tra status: sản phẩm INACTIVE (đã "xóa mềm") vẫn phải được hoàn kho,
+        // nếu không thì không hủy được các đơn cũ có sản phẩm đó.
         int totalStock = Math.addExact(product.getStock(), quantity);
         product.setStock(totalStock);
 
+        // Chỉ OUT_OF_STOCK mới quay lại ACTIVE, INACTIVE giữ nguyên
         if (ProductStatus.OUT_OF_STOCK.equals(product.getStatus())) {
             product.setStatus(ProductStatus.ACTIVE);
         }
 
+        // [REVIEW FIX] Cập nhật updatedAt khi đổi tồn kho
+        product.setUpdatedAt(LocalDateTime.now());
     }
 }
